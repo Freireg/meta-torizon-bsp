@@ -1,7 +1,7 @@
-SRCREV_torizon-meta = "1e293f75e7e5569f0d86d752fbf4180dd3fac6eb"
+SRCREV_torizon-meta = "6e0f9ce8bd885a281c25015f1560bba0c7b9f616"
 SRCREV_torizon-meta:use-head-next = "${AUTOREV}"
 
-KMETABRANCH = "scarthgap-7.x.y"
+KMETABRANCH = "wrynose-8.x.y"
 KMETATORIZON = "torizon-kernel-meta"
 
 KMETAREPOSITORY = "github.com/toradex/toradex-kernel-cache.git"
