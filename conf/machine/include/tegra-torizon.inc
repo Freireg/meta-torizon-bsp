@@ -6,6 +6,8 @@ OSTREE_KERNEL_ARGS:append = " ${KERNEL_ARGS} root=/dev/${TNSPEC_BOOTDEV} rootfst
 
 IMAGE_TEGRAFLASH_KERNEL = "${DEPLOY_DIR_IMAGE}/tegra-minimal-initramfs-${MACHINE}.cboot"
 IMAGE_TEGRAFLASH_FS_TYPE:tegra = "ota-ext4"
+IMAGE_ROOTFS_SIZE ?= "${@'4194304' if d.getVar('RESIZE_HELPER') else str(int(d.getVar('ROOTFSPART_SIZE'))\
+                                                                        // 1024 - eval(d.getVar('IMAGE_ROOTFS_EXTRA_SPACE')))}"
 
 BBMASK += "meta-tegra/external/sota/recipes-bsp/uefi/edk2-firmware-tegra_%.bbappend"
 
