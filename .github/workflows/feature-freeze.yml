@@ -1,4 +1,4 @@
-name: Feature freeze
+name: Feature freeze test
 
 # pull_request_target is needed to label PRs opened from forks. This workflow
 # never checks out or runs code from the PR, so that is safe here.
