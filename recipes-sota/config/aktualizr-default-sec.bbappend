@@ -1,42 +1,75 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
-SRC_URI:append:imx-generic-bsp = " \
-                                   file://fuse_actions-in.sh \
-                                "
+require recipes-bsp/u-boot/u-boot-fusing.inc
 
-RDEPENDS:${PN}:remove:genericx86-64 = "u-boot-fw-utils"
-RDEPENDS:${PN}:remove:intel-x86-common = "u-boot-fw-utils"
-DEPENDS:imx-generic-bsp = "jq-native"
+SRC_URI:append = " \
+    file://bl_actions.sh \
+    file://common_actions.sh \
+    file://fuse_actions-in.sh \
+    "
 
-BL_UPDATE_SUPPORT:intel-x86-common ?= "0"
+# Only i.MX machines have registered fuses; an unlisted i.MX machine must choose explicitly.
+TORIZON_SECONDARY_FUSES_DEFAULT ??= "${@'' if 'imx-generic-bsp' in \
+                                  d.getVar('MACHINEOVERRIDES').split(':') else '0'}"
 
-do_install:append:imx-generic-bsp () {
-    sed -e 's/@@MACHINE@@/${MACHINE}/' \
-        ${UNPACKDIR}/fuse_actions-in.sh > ${UNPACKDIR}/fuse_actions.sh
-    install -d ${D}${bindir}
-    install -m 0744 ${UNPACKDIR}/fuse_actions.sh ${D}${bindir}/fuse_actions.sh
+BOOTLOADER_ACTION_HANDLER_TYPE ?= "${BOOTLOADER_ACTION_HANDLER_TYPE_DEFAULT}"
+BOOTLOADER_ACTION_HANDLER_TYPE_DEFAULT ??= "dummy"
+BOOTLOADER_ACTION_HANDLER = "${@'bl_actions.sh' \
+    if d.getVar('BOOTLOADER_ACTION_HANDLER_TYPE') == 'uboot-emmc' else 'dummy_actions.sh'}"
 
-    local machine="${MACHINE}"
-    cat ${D}${libdir}/sota/secondaries.json |\
-        jq '.["torizon-generic"] +=
-             [{"partial_verifying": false,
-               "ecu_hardware_id": "'"$machine"'-fuses",
-               "full_client_dir": "/var/sota/storage/fuse",
-               "ecu_private_key": "sec.private",
-               "ecu_public_key": "sec.public",
-               "firmware_path": "/var/sota/storage/fuse/fuse.yml",
-               "target_name_path": "/var/sota/storage/fuse/target_name",
-               "metadata_path": "/var/sota/storage/fuse/metadata",
-               "action_handler_path": "/usr/bin/fuse_actions.sh"}]' \
-        > ${UNPACKDIR}/temp.json
+# Keep the ECU when uEnv.txt cannot program fuses, but refuse updates through the dummy.
+FUSE_ACTION_HANDLER = "${@'fuse_actions.sh' \
+    if d.getVar('FUSE_SUPPORT') == '1' and d.getVar('FUSE_SUPPORT_TYPE') == 'NXP' \
+    else 'dummy_actions.sh'}"
 
-    install -m 0644 ${UNPACKDIR}/temp.json ${D}${libdir}/sota/secondaries.json
+def torizon_secondary_rdepends(d):
+    real_bootloader = (
+        d.getVar('TORIZON_SECONDARY_BOOTLOADER') == '1'
+        and d.getVar('BOOTLOADER_ACTION_HANDLER') == 'bl_actions.sh'
+    )
+    real_fuses = (
+        d.getVar('TORIZON_SECONDARY_FUSES') == '1'
+        and d.getVar('FUSE_ACTION_HANDLER') == 'fuse_actions.sh'
+    )
+
+    dependencies = []
+    if real_bootloader:
+        dependencies.extend(['jq', 'util-linux', 'mmc-utils'])
+    if real_bootloader or real_fuses:
+        dependencies.extend(['bash', 'coreutils', 'sed', 'u-boot-fw-utils'])
+
+    return ' '.join(dependencies)
+
+RDEPENDS:${PN}:append = " ${@torizon_secondary_rdepends(d)}"
+
+python () {
+    handler_type = d.getVar('BOOTLOADER_ACTION_HANDLER_TYPE')
+    if handler_type not in ('dummy', 'uboot-emmc'):
+        bb.fatal(
+            'BOOTLOADER_ACTION_HANDLER_TYPE is "%s" for MACHINE "%s". It must be "dummy" (the '
+            'bootloader secondary refuses updates) or "uboot-emmc" (bl_actions.sh, for U-Boot in '
+            'the eMMC hardware boot partitions).' % (handler_type, d.getVar('MACHINE')))
 }
 
-FILES:${PN}:append:imx-generic-bsp = " \
-                                ${bindir}/fuse_actions.sh \
-                                "
-FILES:${PN}:remove:intel-x86-common = "\
-    ${bindir}/bl_actions.sh \
-    ${bindir}/common_actions.sh \
-"
+do_install:append () {
+    needs_common=0
+    if [ "${TORIZON_SECONDARY_BOOTLOADER}" = "1" ] && \
+       [ "${BOOTLOADER_ACTION_HANDLER}" = "bl_actions.sh" ]; then
+        install -d ${D}${bindir}
+        install -m 0744 ${UNPACKDIR}/bl_actions.sh ${D}${bindir}/bl_actions.sh
+        needs_common=1
+    fi
+    if [ "${TORIZON_SECONDARY_FUSES}" = "1" ] && \
+       [ "${FUSE_ACTION_HANDLER}" = "fuse_actions.sh" ]; then
+        install -d ${D}${bindir}
+        sed -e 's/@@MACHINE@@/${MACHINE}/' \
+            ${UNPACKDIR}/fuse_actions-in.sh > ${UNPACKDIR}/fuse_actions.sh
+        install -m 0744 ${UNPACKDIR}/fuse_actions.sh ${D}${bindir}/fuse_actions.sh
+        needs_common=1
+    fi
+    if [ "$needs_common" = "1" ]; then
+        install -m 0644 ${UNPACKDIR}/common_actions.sh ${D}${bindir}/common_actions.sh
+    fi
+}
+
+FILES:${PN}:append = " ${bindir}/common_actions.sh"
