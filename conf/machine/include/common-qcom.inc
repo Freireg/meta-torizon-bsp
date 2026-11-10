@@ -24,9 +24,3 @@ OSTREE_KERNEL_ARGS:prepend = "console=${KERNEL_CONSOLE} ${OSTREE_KERNEL_ARGS_COM
 # No U-Boot environment exists on these machines: rollback relies on
 # systemd-boot boot counting instead.
 SOTA_CLIENT_FEATURES:remove = "ubootenv"
-
-# --- Bootloader updates -----------------------------------------------------
-# The Torizon bootloader secondary (bl_actions.sh) updates U-Boot in the eMMC
-# boot partitions. On these machines the boot chain (XBL, UEFI) is Qualcomm
-# firmware and is not updated through Torizon OTA yet, so do not install it.
-BL_UPDATE_SUPPORT:pn-aktualizr-default-sec = "0"

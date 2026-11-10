@@ -36,6 +36,8 @@ BBMASK += " \
     /meta-imx/meta-imx-ml/recipes-bsp/ara2 \
 "
 
+require torizon-secondaries.inc
+
 # Load Torizon-only BSP metadata after torizon.inc selects its distro family.
 require ${@'bsp-machine-overrides-torizon.inc' if 'torizon-distro' in d.getVar('DISTROOVERRIDES').split(':') else ''}
 
