@@ -303,7 +303,7 @@ do_install() {
     local other_bootpart=$(get_bootpart "$emmc_dev" "$other_partnum")
     local cur_version=$(get_bl_cur_version)
     local new_version=$(get_bl_new_version)
-    local dd_options_wr=$(get_dd_options "conv=fdatasync")
+    local dd_options_wr=$(get_dd_options "conv=fsync")
     # TODO: Consider a new field in metadata to specify how to do the reading.
     local dd_options_rd=$(conv_dd_options "$(get_dd_options)")
 
